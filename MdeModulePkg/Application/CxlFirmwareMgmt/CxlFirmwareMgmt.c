@@ -245,6 +245,69 @@ EFI_STATUS GetImageInfo(UINTN Bus, UINTN Device, UINTN Func)
   return Status;
 }
 
+EFI_STATUS GetPackageInfo(UINTN Bus, UINTN Device, UINTN Func)
+{
+  EFI_STATUS                     Status = EFI_SUCCESS;
+  EFI_HANDLE                     *Handles = NULL;
+  UINTN                          Index;
+  UINTN                          NumOfHandles = 0;
+  UINT32                         PackageVersion = 0;
+  CHAR16                         *PackageVersionName = NULL;
+  UINT32                         PackageVersionNameMaxLen = 0;
+  UINT64                         AttributesSupported = 0;
+  UINT64                         AttributesSetting = 0;
+  CXL_CONTROLLER_PRIVATE_DATA    *Private = NULL;
+
+  Status = getHandleNum(&NumOfHandles, &Handles);
+  if (Status != EFI_SUCCESS) {
+    Print(L"GetPackageInfo: Fail to locate handle buffer...\n");
+    return Status;
+  }
+
+  for (Index = 0; Index < NumOfHandles; Index++) {
+    Status = getPrivateStr(&Private, Handles, Index);
+    if (Status != EFI_SUCCESS) {
+        Print(L"GetImageInfo: Fail to locate handle buffer...\n");
+        continue;
+    }
+
+    if (Bus == Private->Bus && Device == Private->Dev && Func == Private->Func) {
+      PackageVersionName = AllocateZeroPool(CXL_STRING_BUFFER_WIDTH);
+      if (PackageVersionName == NULL) {
+        DEBUG((EFI_D_ERROR, "GetImageInfo: AllocateZeroPool failed!\n"));
+        Status = EFI_OUT_OF_RESOURCES;
+        return Status;
+      }
+
+      Status = Private->FirmwareMgmt.GetPackageInfo(
+                                       &Private->FirmwareMgmt,
+                                       &PackageVersion,
+                                       &PackageVersionName,
+                                       &PackageVersionNameMaxLen,
+                                       &AttributesSupported,
+                                       &AttributesSetting
+                                       );
+
+      if (!EFI_ERROR(Status)) {
+          Print(L"Package Version Name      : %s\n", PackageVersionName);
+          Print(L"Package Version           : %d\n", PackageVersion);
+          Print(L"Attributes Supported      : %d\n", AttributesSupported);
+          Print(L"Attributes Setting        : %d\n", AttributesSetting);
+      } else {
+          Print(L"Calling FMP.GetPackageInfo...%r\n", Status);
+        }
+
+      if (NULL != PackageVersionName) {
+        FreePool(PackageVersionName);
+      }
+    break;
+    }
+  }
+
+  FreePool(Handles);
+  return Status;
+}
+
 EFI_STATUS GetImage(UINTN Bus, UINTN Device, UINTN Func, UINTN Slot)
 {
   EFI_STATUS    Status = EFI_SUCCESS;
@@ -310,6 +373,58 @@ EFI_STATUS GetImage(UINTN Bus, UINTN Device, UINTN Func, UINTN Slot)
   if (NULL != Image) {
     FreePool(Image);
   }
+  return Status;
+}
+
+EFI_STATUS SetPackageInfo(UINTN Bus, UINTN Device, UINTN Func)
+{
+  EFI_STATUS    Status = EFI_SUCCESS;
+  EFI_HANDLE    *Handles = NULL;
+  UINTN         Index;
+  UINTN         NumOfHandles = 0;
+
+  CONST VOID    *Image = NULL;
+  UINTN         ImageSize = 0;
+  CONST VOID    *VendorCode = NULL;
+  UINT32        PackageVersion = 1;
+  CHAR16        PackageVersionName[CXL_STRING_BUFFER_WIDTH];
+
+  CXL_CONTROLLER_PRIVATE_DATA    *Private = NULL;
+
+  Status = getHandleNum(&NumOfHandles, &Handles);
+  if (Status != EFI_SUCCESS) {
+    Print(L"SetPackageInfo: Fail to locate handle buffer...\n");
+    return Status;
+  }
+
+  for (Index = 0; Index < NumOfHandles; Index++) {
+    Status = getPrivateStr(&Private, Handles, Index);
+    if (Status != EFI_SUCCESS) {
+      Print(L"GetImageInfo: Fail to locate handle buffer...\n");
+      continue;
+    }
+
+    if (Bus == Private->Bus && Device == Private->Dev && Func == Private->Func) {
+      strCpyApp_c16(PackageVersionName, CXL_PACKAGE_VERSION_NAME_APP);
+      Status = Private->FirmwareMgmt.SetPackageInfo(
+                                       &Private->FirmwareMgmt,
+                                       &Image,
+                                       ImageSize,
+                                       &VendorCode,
+                                       PackageVersion,
+                                       PackageVersionName
+                                       );
+
+      if (!EFI_ERROR(Status)) {
+          Print(L"SetPackageInfo Success\n");
+      } else {
+          Print(L"Calling FMP SetPackageInfo Failed...%r\n", Status);
+        }
+      break;
+    }
+  }
+
+  FreePool(Handles);
   return Status;
 }
 
@@ -402,6 +517,14 @@ SetImage(UINTN Bus, UINTN Device, UINTN Func, UINTN Slot, CHAR16 *FileName)
   return Status;
 }
 
+EFI_STATUS
+CheckImage(UINTN Bus, UINTN Device, UINTN Func, UINTN Slot)
+{
+  EFI_STATUS Status = EFI_SUCCESS;
+  Print(L"CheckImage Command not supported...\n");
+  return Status;
+}
+
 void
 PrintHelpPage ()
 {
@@ -409,6 +532,9 @@ PrintHelpPage ()
   Print (L" -fimginfo <b: Bus> <d: Device> <f: Function>                : Get information about current firmware image (GetImageInfo).\n");
   Print (L" -fsetimg  <b: Bus> <d: Device> <f: Function> <Slot> <file>  : Firmware download and activate (SetImage).\n");
   Print (L" -fgetimg  <b: Bus> <d: Device> <f: Function> <Slot>         : Get information about the firmware package (GetImage).\n");
+  Print (L" -fchkimg  <b: Bus> <d: Device> <f: Function> <Slot> <file>  : Check the validity of a firmware image (CheckImage).\n");
+  Print (L" -fsetpack <b: Bus> <d: Device> <f: Function>                : Set information about the firmware package (SetPackageInfo).\n");
+  Print (L" -fgetpack <b: Bus> <d: Device> <f: Function>                : Get information about the firmware package (GetPackageInfo).\n");
 }
 
 BOOLEAN isDigit(char ch)
@@ -519,6 +645,27 @@ validArguments(UINTN Argc, CHAR16 **Argv, UINTN *Bus, UINTN *Device, UINTN *Func
       }
       break;
 
+    case OpTypeFmpCheckImg:
+      if (Argc != 7) {
+        Print(L"Invalid argument...\n");
+        return FALSE;
+      }
+      break;
+
+    case OpTypeFmpGetPkgInfo:
+      if (Argc != 5) {
+        Print(L"Invalid argument...\n");
+        return FALSE;
+      }
+      break;
+
+    case OpTypeSetPkgInfo:
+      if (Argc != 5) {
+        Print(L"Invalid argument...\n");
+        return FALSE;
+      }
+      break;
+
     default:
       return FALSE;
   }
@@ -551,6 +698,12 @@ CXL_FMP_OPERATION_TYPE GetOptype(UINTN Argc, CHAR16 **Argv) {
       OpType = OpTypeFmpSetImg;
   } else if (!StrCmp(str, L"-fgetimg")) {
       OpType = OpTypeGetImage;
+  } else if (!StrCmp(str, L"-fchkimg")) {
+      OpType = OpTypeFmpCheckImg;
+  } else if (!StrCmp(str, L"-fsetpack")) {
+      OpType = OpTypeSetPkgInfo;
+  } else if (!StrCmp(str, L"-fgetpack")) {
+      OpType = OpTypeFmpGetPkgInfo;
   } else {
       Print(L"Invalid argument...\n");
       OpType = OpTypeDisplayHelp;
@@ -608,6 +761,18 @@ cxlFWMain(
 
     case OpTypeGetImage:
       Status = GetImage(Bus, Device, Func, Slot);
+      break;
+
+    case OpTypeFmpCheckImg:
+      Status = CheckImage(Bus, Device, Func, Slot);
+      break;
+
+    case OpTypeFmpGetPkgInfo:
+      Status = GetPackageInfo(Bus, Device, Func);
+      break;
+
+    case OpTypeSetPkgInfo:
+      Status = SetPackageInfo(Bus, Device, Func);
       break;
 
   default:

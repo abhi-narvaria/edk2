@@ -423,6 +423,10 @@ void strCpy(CHAR16 *st1, char *st2);
 
 void strCpy_c16(CHAR16 *st1, CHAR16 *st2);
 
+void strCpy_const16(CHAR16 *st1, CONST CHAR16 *st2);
+
+int strCmp(CHAR16 *str1, CHAR16 *str2);
+
 void InitializeFwImageDescriptor(CXL_CONTROLLER_PRIVATE_DATA *Private);
 
 EFI_STATUS pci_uefi_read_config_word(CXL_CONTROLLER_PRIVATE_DATA *Private, UINT32 start, UINT32 *val);

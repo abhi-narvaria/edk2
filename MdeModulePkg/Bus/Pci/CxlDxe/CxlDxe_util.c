@@ -89,6 +89,36 @@ void strCpy_c16(CHAR16 *st1, CHAR16 *st2)
   st1[i] = '\0';
 }
 
+void strCpy_const16(CHAR16 *st1, CONST CHAR16 *st2)
+{
+  int i = 0;
+  for (i = 0; st2[i] != '\0'; i++) {
+      st1[i] = st2[i];
+  }
+  st1[i] = '\0';
+}
+
+int strCmp(CHAR16 *str1, CHAR16 *str2) {
+
+    int i = 0;
+    if (str1 == NULL) {
+        return 1;
+    }
+
+    while (str1[i] == str2[i]) {
+      if (str1[i] == '\0' || str2[i] == '\0') {
+        break;
+      }
+      i++;
+    }
+
+    if (str1[i] == '\0' && str2[i] == '\0') {
+      return 0;
+    } else {
+        return str1[i] - str2[i];
+    }
+}
+
 void
 InitializeFwImageDescriptor(CXL_CONTROLLER_PRIVATE_DATA *Private)
 {

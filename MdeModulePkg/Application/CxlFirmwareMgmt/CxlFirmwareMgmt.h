@@ -6,6 +6,7 @@
 #ifndef _CXL_FIRMWARE_MGMT_H_
 #define _CXL_FIRMWARE_MGMT_H_
 
+#include <string.h>
 #include <stdbool.h>
 #include <Protocol/PciIo.h>
 #include <Protocol/FirmwareManagement.h>
@@ -34,6 +35,7 @@
 #include <Library/ShellLib.h>
 
 #define CXL_CONTROLLER_PRIVATE_DATA_SIGNATURE           SIGNATURE_32 ('C','X','L','X')
+#define CXL_MAX_FILE_NAME_LENGTH                        256
 #define CXL_FW_IMAGE_DESCRIPTOR_COUNT                   5
 #define CXL_FW_MAX_SLOTS                                5
 #define CXL_STRING_BUFFER_WIDTH                         256
@@ -43,6 +45,9 @@
 typedef enum {
   OpTypeDisplayHelp,
   OpTypeListDevice,
+  OpTypeFmpGetImgInfo,
+  OpTypeGetImage,
+  OpTypeFmpSetImg
 } CXL_FMP_OPERATION_TYPE;
 
 struct cxl_reg_map {

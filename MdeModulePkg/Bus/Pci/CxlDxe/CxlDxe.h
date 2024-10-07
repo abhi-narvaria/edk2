@@ -95,6 +95,7 @@
 #define CXL_UL                                          (UINTN)
 #define CXL_GENMASK(h, l)                               (((~CXL_UL(0)) - (CXL_UL(1) << (l)) + 1) & (~CXL_UL(0) >> (CXL_BITS_PER_LONG - 1 - (h))))
 #define CXL_CONTROLLER_PRIVATE_FROM_FIRMWARE_MGMT(a)    CR (a, CXL_CONTROLLER_PRIVATE_DATA, FirmwareMgmt, CXL_CONTROLLER_PRIVATE_DATA_SIGNATURE)
+#define CXL_QEMU                                        1
 
 typedef struct {
   UINT16    VendorID;
@@ -140,6 +141,8 @@ struct cxl_register_map {
 enum cxl_opcode {
   CXL_MBOX_OP_INVALID     = 0x0000,
   CXL_MBOX_OP_GET_FW_INFO = 0x0200,
+  CXL_MBOX_OP_TRANSFER_FW = 0x0201,
+  CXL_MBOX_OP_ACTIVATE_FW = 0x0202,
   CXL_MBOX_OP_MAX         = 0x10000
 };
 
@@ -153,6 +156,24 @@ struct cxl_mbox_get_fw_info {
   char     slot_2_revision[16];
   char     slot_3_revision[16];
   char     slot_4_revision[16];
+};
+#pragma pack()
+
+#pragma pack(1)
+struct cxl_mbox_transfer_fw {
+  UINT8     action;
+  UINT8     slot;
+  UINT8     reserved[2];
+  UINT32    offset;
+  UINT8     reserved2[0x78];
+  UINT8     data[];
+};
+#pragma pack()
+
+#pragma pack(1)
+struct cxl_mbox_activate_fw {
+  UINT8    action;
+  UINT8    slot;
 };
 #pragma pack()
 
@@ -394,6 +415,8 @@ size_t min2size(size_t a, size_t b);
 
 UINT64 min3(UINT64 a, UINT64 b, UINT64 c);
 
+void getChunkCnt(int filesize, int maxPayloadSize, int *chunkCnt, int *chunkSize);
+
 UINT64 field_get(UINT64 reg, UINT32 p1, UINT32 p2);
 
 void strCpy(CHAR16 *st1, char *st2);
@@ -417,6 +440,10 @@ EFI_STATUS pci_uefi_mem_write_64(CXL_CONTROLLER_PRIVATE_DATA *Private, UINT32 st
 EFI_STATUS pci_uefi_mem_write_n(CXL_CONTROLLER_PRIVATE_DATA *Private, UINT32 start, CHAR8 Buffer[], UINT32 Size);
 
 EFI_STATUS cxl_mem_get_fw_info(CXL_CONTROLLER_PRIVATE_DATA *Private);
+
+EFI_STATUS cxl_mem_transfer_fw(CXL_CONTROLLER_PRIVATE_DATA *Private, UINT32 nextslot, const UINT8 *data, UINT32 offset, UINT32 size, UINT32 *written);
+
+EFI_STATUS cxl_mem_activate_fw(CXL_CONTROLLER_PRIVATE_DATA *Private);
 
 EFI_STATUS cxl_pci_mbox_send(CXL_CONTROLLER_PRIVATE_DATA *Private);
 #endif // _EFI_CXLDXE_H_
